@@ -1,2 +1,2 @@
-# Equinor.ProCoSys.AutoCutoffFunction
+# procosys-autocutoff-trigger-function
 Trigger ProCoSys AutoCutoff
