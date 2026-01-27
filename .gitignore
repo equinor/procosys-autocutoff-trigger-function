@@ -352,3 +352,6 @@ MigrationBackup/
 # IDEA files
 **/.idea/*
 *.orig
+
+# Azure Functions local settings
+local.settings.json
