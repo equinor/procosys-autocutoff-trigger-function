@@ -229,18 +229,15 @@ var host = new HostBuilder()
         services.AddApplicationInsightsTelemetryWorkerService();
         services.ConfigureFunctionsApplicationInsights();
         
-        // Register scoped services
         services.AddScoped<IMyService, MyService>();
         services.AddScoped<IProcessingService, ProcessingService>();
         
-        // Register SDK clients as singletons
         services.AddSingleton(sp =>
         {
             var connectionString = context.Configuration["ServiceBusConnection"];
             return new ServiceBusClient(connectionString);
         });
         
-        // HTTP clients
         services.AddHttpClient<IExternalApiClient, ExternalApiClient>(client =>
         {
             client.BaseAddress = new Uri("https://api.example.com");
@@ -386,10 +383,22 @@ namespace MyApp
 
 ### host.json
 
+**Important:** Most host.json files do NOT need changes for isolated worker migration. Only update if you have extension-specific configuration.
+
+**Example: Service Bus Configuration Change**
+
 **Before:**
 ```json
 {
   "version": "2.0",
+  "logging": {
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": true,
+        "excludedTypes": "Request"
+      }
+    }
+  },
   "extensions": {
     "serviceBus": {
       "messageHandlerOptions": {
@@ -405,8 +414,11 @@ namespace MyApp
 {
   "version": "2.0",
   "logging": {
-    "logLevel": {
-      "default": "Information"
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": true,
+        "excludedTypes": "Request"
+      }
     }
   },
   "extensions": {
@@ -418,5 +430,84 @@ namespace MyApp
 ```
 
 **Changes:**
-- Updated Service Bus configuration path
-- Added logging configuration section
+- Service Bus: `messageHandlerOptions.maxAutoRenewDuration` → `maxAutoLockRenewalDuration`
+- **No other changes needed** - Basic logging and Application Insights configuration remains the same
+
+**Example: No Changes Needed**
+
+If your host.json only has basic configuration (like below), **leave it unchanged**:
+
+```json
+{
+  "version": "2.0",
+  "logging": {
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": true,
+        "excludedTypes": "Request"
+      }
+    }
+  }
+}
+```
+
+---
+
+## Example 6: Dockerfile
+
+### Before (In-Process)
+
+```dockerfile
+FROM mcr.microsoft.com/azure-functions/dotnet:4-dotnet8.0 AS base
+WORKDIR /home/site/wwwroot
+EXPOSE 80
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY ["MyFunction/MyFunction.csproj", "MyFunction/"]
+RUN dotnet restore "MyFunction/MyFunction.csproj"
+COPY . .
+WORKDIR "/src/MyFunction"
+RUN dotnet build "MyFunction.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "MyFunction.csproj" -c Release -o /app/publish
+
+FROM base AS final
+WORKDIR /home/site/wwwroot
+COPY --from=publish /app/publish .
+ENV AzureWebJobsScriptRoot=/home/site/wwwroot \
+    AzureFunctionsJobHost__Logging__Console__IsEnabled=true
+```
+
+### After (Isolated Worker)
+
+```dockerfile
+FROM mcr.microsoft.com/azure-functions/dotnet-isolated:4-dotnet-isolated8.0 AS base
+WORKDIR /home/site/wwwroot
+EXPOSE 80
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY ["MyFunction/MyFunction.csproj", "MyFunction/"]
+RUN dotnet restore "MyFunction/MyFunction.csproj"
+COPY . .
+WORKDIR "/src/MyFunction"
+RUN dotnet build "MyFunction.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "MyFunction.csproj" -c Release -o /app/publish
+
+FROM base AS final
+WORKDIR /home/site/wwwroot
+COPY --from=publish /app/publish .
+ENV AzureWebJobsScriptRoot=/home/site/wwwroot \
+    AzureFunctionsJobHost__Logging__Console__IsEnabled=true
+```
+
+**Key Change:**
+- Base image: `dotnet:4-dotnet8.0` → `dotnet-isolated:4-dotnet-isolated8.0`
+- For .NET 6 use: `dotnet-isolated:4-dotnet-isolated6.0`
+- For .NET 7 use: `dotnet-isolated:4-dotnet-isolated7.0`
+- Build and publish stages remain the same
+

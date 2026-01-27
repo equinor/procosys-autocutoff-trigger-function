@@ -1,38 +1,35 @@
 using System;
 using System.Net;
 using System.Threading.Tasks;
-using Microsoft.Azure.WebJobs;
+using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace Equinor.ProCoSys.AutoCutoffFunction
+namespace Equinor.ProCoSys.AutoCutoffFunction;
+
+public class AutoCutoffTrigger(
+    IConfiguration configuration,
+    ILogger<AutoCutoffTrigger> logger)
 {
-    public class AutoCutoffTrigger
+    [Function("AutoCutoffTrigger")]
+    public async Task RunAsync([TimerTrigger("%Schedule%")] TimerInfo timerInfo)
     {
-        private readonly IConfiguration _configuration;
+        logger.LogInformation("Starting AutoCutoffTrigger trigger at: {DateTime}", DateTime.Now);
 
-        public AutoCutoffTrigger(IConfiguration configuration) => _configuration = configuration;
+        var pcsUrl = configuration.GetValue<string>("PCSUrl");
+        logger.LogInformation("PCSUrl: {PCSUrl}", pcsUrl);
 
-        [FunctionName("AutoCutoffTrigger")]
-        public async Task RunAsync([TimerTrigger("%Schedule%")] TimerInfo timerInfo, ILogger log)
+        var mainSecret = configuration.GetValue<string>("MainSecret");
+        logger.LogInformation("MainSecret: {MainSecretPrefix}xxxxxx", mainSecret?.Substring(0, 3));
+
+        var url = $"{pcsUrl?.TrimEnd('/')}/runjob/RunAllCutoffAnonymous?key={mainSecret}";
+        var result = await AutoCutoffRunner.RunAsync(url);
+
+        if (result != HttpStatusCode.NoContent)
         {
-            log.LogInformation($"Starting AutoCutoffTrigger trigger at: {DateTime.Now}");
-
-            var pcsUrl = _configuration.GetValue<string>("PCSUrl");
-            log.LogInformation($"PCSUrl: {pcsUrl}");
-
-            var mainSecret = _configuration.GetValue<string>("MainSecret");
-            log.LogInformation($"MainSecret: {mainSecret.Substring(0, 3)}xxxxxx");
-
-            var url = $"{pcsUrl.TrimEnd('/')}/runjob/RunAllCutoffAnonymous?key={mainSecret}";
-            var result = await AutoCutoffRunner.RunAsync(url);
-
-            if (result != HttpStatusCode.NoContent)
-            {
-                throw new Exception($"AutoCutoffTrigger trigger didn't exit with expected code {HttpStatusCode.NoContent}. Got code {result}");
-            }
-
-            log.LogInformation($"Finished AutoCutoffTrigger trigger at: {DateTime.Now}.");
+            throw new Exception($"AutoCutoffTrigger trigger didn't exit with expected code {HttpStatusCode.NoContent}. Got code {result}");
         }
+
+        logger.LogInformation("Finished AutoCutoffTrigger trigger at: {DateTime}", DateTime.Now);
     }
 }
