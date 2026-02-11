@@ -1,0 +1,30 @@
+variables:
+  # Azure DevOps Library Group
+  - group: pcs-pipeline
+
+  - name: 'System.Debug'
+    value: 'true'
+
+  - name: 'Agent.Diagnostic'
+    value: 'true'
+
+  - name: 'fullAppName'
+    value: 'autocutoff'
+
+  - name: 'shortAppName'
+    value: 'aco'
+
+  - name: 'envRgName'
+    value: '$(globalPrefix)-$(fullAppName)-$(envLabel)-rg'
+
+  - name: 'envGroupName'
+    value: '$(globalPrefix)-$(fullAppName)-infra-$(envName)'
+
+  - name: 'kvName'
+    value: '$(globalPrefix)-$(shortAppName)-$(envLabel)-kv'
+
+  - name: 'appName'
+    value: '$(globalPrefix)-$(fullAppName)-$(envName)-func'
+
+  - name: 'appServicePlanName'
+    value: '$(globalPrefix)-$(fullAppName)-$(envLabel)-plan'
