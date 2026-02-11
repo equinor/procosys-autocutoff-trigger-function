@@ -9,8 +9,8 @@ resources:
   - repository: self
 # Global variables for the pipeline
 variables:
-  - template: pipelines/global-variables.yml
-  - template: pipelines/autocutoff/autocutoff-variables.yml
+  - template: global-variables.yml
+  - template: autocutoff/autocutoff-variables.yml
   - name: 'repositoryName'
     value: 'autocutoff/autocutoff-function'
 
@@ -27,7 +27,7 @@ stages:
 
   jobs:
   # Docker Build
-  - template: pipelines/autocutoff/jobs/dockerbuild.yml
+  - template: autocutoff/jobs/dockerbuild.yml
     parameters:
       deploymentName: 'docker_build'
       dependsOn: ''
@@ -40,7 +40,7 @@ stages:
       dockerRegistryServiceConnection: '$(dockerRegistryServiceConnectionName)'
 
   # Docker Build and Push
-  - template: pipelines/autocutoff/jobs/dockerbuild.yml
+  - template: autocutoff/jobs/dockerbuild.yml
     parameters:
       deploymentName: 'docker_build_and_push'
       dependsOn: ''
@@ -74,7 +74,7 @@ stages:
     rgName: '${{ variables.envRgName }}'
 
   jobs:
-  - template: pipelines/autocutoff/jobs/deploy-function.yml
+  - template: autocutoff/jobs/deploy-function.yml
     parameters:
       dependsOn: ''
       deploymentName: 'deploy_function'
@@ -100,7 +100,7 @@ stages:
     rgName: '${{ variables.envRgName }}'
 
   jobs:
-  - template: pipelines/autocutoff/jobs/deploy-function.yml
+  - template: autocutoff/jobs/deploy-function.yml
     parameters:
       dependsOn: ''
       deploymentName: 'deploy_function'
