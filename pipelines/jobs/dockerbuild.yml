@@ -1,0 +1,64 @@
+parameters:
+  deploymentName: ''
+  dependsOn: ''
+  dockerfilePath: ''
+  buildContext: ''
+  repository: ''
+  envGroup: ''
+  condition: ''
+  buildCommand: ''
+  dockerRegistryServiceConnection: ''
+
+jobs:
+  - deployment: ${{ parameters.deploymentName }}
+    dependsOn: ${{ parameters.dependsOn }}
+    condition: ${{ parameters.condition }}
+    environment: '${{ parameters.envGroup }}'
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - checkout: self
+              displayName: 'Checkout source code'
+              persistCredentials: true
+
+            - task: Docker@2
+              displayName: 'ACR Login'
+              inputs:
+                command: login
+                containerRegistry: '${{ parameters.dockerRegistryServiceConnection }}'
+
+            - task: NuGetAuthenticate@0
+              displayName: 'NuGet Authenticate'
+              inputs:
+                forceReinstallCredentialProvider: true
+
+            - task: Docker@2
+              displayName: Build
+              condition: contains('${{ parameters.buildCommand }}', 'build')
+              inputs:
+                command: build
+                repository: '${{ parameters.repository }}'
+                dockerfile: '${{ parameters.dockerfilePath }}'
+                buildContext: '${{ parameters.buildContext }}'
+                tags: |
+                  $(Build.BuildId)
+                  latest
+
+            - task: Docker@2
+              condition: and(succeeded(), contains('${{ parameters.buildCommand }}', 'Push'))
+              displayName: Push
+              inputs:
+                command: push
+                repository: '${{ parameters.repository }}'
+                tags: |
+                  $(Build.BuildId)
+                  latest
+
+            - task: Docker@2
+              displayName: ACR Logout
+              inputs:
+                command: logout
+                containerRegistry: '${{ parameters.dockerRegistryServiceConnection }}'
