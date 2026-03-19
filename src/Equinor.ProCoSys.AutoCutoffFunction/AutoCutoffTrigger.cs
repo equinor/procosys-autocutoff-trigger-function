@@ -12,7 +12,7 @@ public class AutoCutoffTrigger(
     ILogger<AutoCutoffTrigger> logger)
 {
     [Function("AutoCutoffTrigger")]
-    public async Task RunAsync([TimerTrigger("%Schedule%")] TimerInfo timerInfo)
+    public async Task RunAsync([TimerTrigger("%Schedule%")] TimerInfo _)
     {
         logger.LogInformation("Starting AutoCutoffTrigger trigger at: {DateTime}", DateTime.Now);
 
